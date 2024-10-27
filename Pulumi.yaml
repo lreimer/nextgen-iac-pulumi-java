@@ -1,0 +1,7 @@
+name: nextgen-iac-pulumi-java
+description: JAVASpektrum article on next generation Infrastructure as Code using Pulumi and Java.
+runtime: java
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: gcp-java
