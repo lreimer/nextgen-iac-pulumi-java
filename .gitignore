@@ -28,3 +28,6 @@ target/
 .classpath
 .project
 .settings/
+
+kubeconfig
+gke_gcloud_auth_plugin_cache

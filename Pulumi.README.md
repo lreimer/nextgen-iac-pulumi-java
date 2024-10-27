@@ -5,3 +5,4 @@ A complete infrastructure for a microservice application in the Google Cloud Pla
 - **GCP Storage Bucket**: ${outputs.bucketUrl}
 - **Docker Artifact Registry**: ${outputs.repositoryId}
 - **GKE Cluster ${outputs.kubernetesClusterName}**: https://${outputs.kubernetesClusterEndpoint}
+- **PostgreSQL Connection String**: ${outputs.postgresConnectionString}
