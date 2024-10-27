@@ -46,8 +46,13 @@ import com.pulumi.kubernetes.core.v1.inputs.PodSpecArgs;
 import com.pulumi.kubernetes.core.v1.inputs.PodTemplateSpecArgs;
 import com.pulumi.kubernetes.core.v1.inputs.ServicePortArgs;
 import com.pulumi.kubernetes.core.v1.inputs.ServiceSpecArgs;
+import com.pulumi.kubernetes.kustomize.v2.Directory;
+import com.pulumi.kubernetes.kustomize.v2.DirectoryArgs;
 import com.pulumi.kubernetes.meta.v1.inputs.LabelSelectorArgs;
 import com.pulumi.kubernetes.meta.v1.inputs.ObjectMetaArgs;
+import com.pulumi.kubernetes.yaml.v2.ConfigFile;
+import com.pulumi.kubernetes.yaml.v2.ConfigFileArgs;
+import com.pulumi.resources.ComponentResourceOptions;
 import com.pulumi.resources.CustomResourceOptions;
 
 /**
@@ -245,6 +250,7 @@ public class PulumiJava {
 
     static void deployMicroservice(Context ctx, Cluster cluster, DatabaseInstance database) {
         var kubeconfig = generateKubeconfig(cluster);
+        
         /*
         String kubeconfig;
         try {
@@ -255,59 +261,72 @@ public class PulumiJava {
         */
 
         var provider = new Provider("gke-provider", ProviderArgs.builder()
-                .kubeconfig(kubeconfig)
-                .build());
+            .kubeconfig(kubeconfig)
+            .build());
+        var options = CustomResourceOptions.builder().provider(provider).build();                
 
         // create the microservice Kubernetes resources
         var appLabels = Map.of("app", "microservice");
-        var options = CustomResourceOptions.builder().provider(provider).build();
         var namespace = new Namespace("microservice", NamespaceArgs.builder()
             .metadata(ObjectMetaArgs.builder()
                 .name("microservice")
+                .labels(appLabels)
                 .build())
             .build(), options);
         
         var deployment = new Deployment("microservice-deployment", DeploymentArgs.builder()
-                .metadata(ObjectMetaArgs.builder()
-                    .namespace(namespace.metadata().applyValue(meta -> meta.name().get()))
-                    .build())
-                .spec(DeploymentSpecArgs.builder()
-                    .replicas(2)
-                    .selector(LabelSelectorArgs.builder().matchLabels(appLabels).build())
-                    .template(PodTemplateSpecArgs.builder()
-                        .metadata(ObjectMetaArgs.builder().labels(appLabels).build())
-                        .spec(PodSpecArgs.builder()
-                            .containers(ContainerArgs.builder()
-                                .name("microservice")
-                                .image("ghcr.io/lreimer/nextgen-iac-pulumi-java:main")
-                                .ports(ContainerPortArgs.builder()
-                                    .name("http")
-                                    .containerPort(10000)
-                                    .build())
-                                .env(EnvVarArgs.builder()
-                                    .name("DATABASE_URL")
-                                    .value(database.connectionName())
-                                    .build())
+            .metadata(ObjectMetaArgs.builder()
+                .namespace(namespace.metadata().applyValue(meta -> meta.name().get()))
+                .build())
+            .spec(DeploymentSpecArgs.builder()
+                .replicas(2)
+                .selector(LabelSelectorArgs.builder().matchLabels(appLabels).build())
+                .template(PodTemplateSpecArgs.builder()
+                    .metadata(ObjectMetaArgs.builder().labels(appLabels).build())
+                    .spec(PodSpecArgs.builder()
+                        .containers(ContainerArgs.builder()
+                            .name("microservice")
+                            .image("ghcr.io/lreimer/nextgen-iac-pulumi-java:main")
+                            .ports(ContainerPortArgs.builder()
+                                .name("http")
+                                .containerPort(10000)
+                                .build())
+                            .env(EnvVarArgs.builder()
+                                .name("DATABASE_URL")
+                                .value(database.connectionName())
                                 .build())
                             .build())
                         .build())
                     .build())
-                .build(), options);
+                .build())
+            .build(), options);
 
         var service = new Service("microservice-service", ServiceArgs.builder()
-                .metadata(ObjectMetaArgs.builder()
-                    .namespace(namespace.metadata().applyValue(meta -> meta.name().get()))
+            .metadata(ObjectMetaArgs.builder()
+                .namespace(namespace.metadata().applyValue(meta -> meta.name().get()))
+                .build())
+            .spec(ServiceSpecArgs.builder()
+                .selector(appLabels)
+                .ports(ServicePortArgs.builder()
+                    .port(80)
+                    .targetPort("http")
                     .build())
-                .spec(ServiceSpecArgs.builder()
-                    .selector(appLabels)
-                    .ports(ServicePortArgs.builder()
-                        .port(80)
-                        .targetPort("http")
-                        .build())
-                    .type("LoadBalancer")
-                    .build())
-                .build(), options);
-        
+                .type("LoadBalancer")
+                .build())
+            .build(), options);
+
+        /*
+        // create the Kubernetes resources from a manifest file
+        var manifest = new ConfigFile("manifest", ConfigFileArgs.builder()
+            .file("./src/main/k8s/microservice.yaml")
+            .build(), ComponentResourceOptions.builder().provider(provider).build());
+
+        // create the Kubernetes resources from a Kustomize directory
+        var kustomize = new Directory("kustomize", DirectoryArgs.builder()
+            .directory("./src/main/k8s")
+            .build(), ComponentResourceOptions.builder().provider(provider).build());
+        */
+
         ctx.export("namespace", namespace.metadata().applyValue(meta -> meta.name()));
         ctx.export("deployment", deployment.metadata().applyValue(meta -> meta.name()));
         ctx.export("service", service.metadata().applyValue(meta -> meta.name()));
