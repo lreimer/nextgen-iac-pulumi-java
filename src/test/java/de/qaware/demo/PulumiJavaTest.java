@@ -22,14 +22,14 @@ class PulumiJavaTest {
 
     @Test
     void testSetupStorageBucket() {
-        var result = PulumiTest
-                .withMocks(new PulumiJavaMocks())
+        // run the Pulumi program with mocks
+        var result = PulumiTest.withMocks(new PulumiJavaMocks())
                 .runTest(PulumiJava::setupStorageBucket);
 
+        // get bucket resource and assert the results
         var bucket = result.resources().stream()
                 .filter(r -> r instanceof Bucket).map(r -> (Bucket) r)
                 .findFirst();
-
         assertThat(bucket).isPresent().hasValueSatisfying(b -> {
             assertThat(extractValue(b.location())).isEqualTo("EU");
         });
