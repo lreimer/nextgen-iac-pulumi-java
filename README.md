@@ -1,3 +1,5 @@
+![Maven Java CI with Maven](https://github.com/lreimer/nextgen-iac-pulumi-java/actions/workflows/maven.yml/badge.svg)
+
 # Next-Generation Infrastructure as Code 
 ## Cloud Infrastructure with Pulumi and Java
 
