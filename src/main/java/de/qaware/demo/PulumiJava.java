@@ -304,7 +304,7 @@ public class PulumiJava {
                         .build())
                     .type("LoadBalancer")
                     .build())
-                .build());
+                .build(), options);
         
         ctx.export("namespace", namespace.metadata().applyValue(meta -> meta.name()));
         ctx.export("deployment", deployment.metadata().applyValue(meta -> meta.name()));
