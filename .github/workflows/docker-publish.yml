@@ -10,15 +10,17 @@ on:
   push:
     branches: [ "main" ]
     tags: [ 'v*.*.*' ]
+    paths:
+      - 'src/main/docker/**'
   pull_request:
     branches: [ "main" ]
-  
+    paths:
+      - 'src/main/docker/**'
 
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-
 
 jobs:
   build-and-publish:
