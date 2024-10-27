@@ -34,6 +34,11 @@
             <artifactId>dockerbuild</artifactId>
             <version>(,1.0.0]</version>
         </dependency>
+        <dependency>
+            <groupId>com.pulumi</groupId>
+            <artifactId>kubernetes</artifactId>
+            <version>(,4.18.2]</version>
+        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>

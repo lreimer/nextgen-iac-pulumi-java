@@ -3,6 +3,7 @@ package de.qaware.demo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
 
 import com.pulumi.Context;
 import com.pulumi.Pulumi;
@@ -11,6 +12,7 @@ import com.pulumi.dockerbuild.Image;
 import com.pulumi.dockerbuild.ImageArgs;
 import com.pulumi.dockerbuild.enums.Platform;
 import com.pulumi.dockerbuild.inputs.BuildContextArgs;
+import com.pulumi.exceptions.RunException;
 import com.pulumi.gcp.artifactregistry.Repository;
 import com.pulumi.gcp.artifactregistry.RepositoryArgs;
 import com.pulumi.gcp.artifactregistry.inputs.RepositoryDockerConfigArgs;
@@ -28,6 +30,25 @@ import com.pulumi.gcp.sql.inputs.DatabaseInstanceSettingsArgs;
 import com.pulumi.gcp.storage.Bucket;
 import com.pulumi.gcp.storage.BucketArgs;
 import com.pulumi.gcp.storage.inputs.BucketCorArgs;
+import com.pulumi.kubernetes.Provider;
+import com.pulumi.kubernetes.ProviderArgs;
+import com.pulumi.kubernetes.apps.v1.Deployment;
+import com.pulumi.kubernetes.apps.v1.DeploymentArgs;
+import com.pulumi.kubernetes.apps.v1.inputs.DeploymentSpecArgs;
+import com.pulumi.kubernetes.core.v1.Namespace;
+import com.pulumi.kubernetes.core.v1.NamespaceArgs;
+import com.pulumi.kubernetes.core.v1.Service;
+import com.pulumi.kubernetes.core.v1.ServiceArgs;
+import com.pulumi.kubernetes.core.v1.inputs.ContainerArgs;
+import com.pulumi.kubernetes.core.v1.inputs.ContainerPortArgs;
+import com.pulumi.kubernetes.core.v1.inputs.EnvVarArgs;
+import com.pulumi.kubernetes.core.v1.inputs.PodSpecArgs;
+import com.pulumi.kubernetes.core.v1.inputs.PodTemplateSpecArgs;
+import com.pulumi.kubernetes.core.v1.inputs.ServicePortArgs;
+import com.pulumi.kubernetes.core.v1.inputs.ServiceSpecArgs;
+import com.pulumi.kubernetes.meta.v1.inputs.LabelSelectorArgs;
+import com.pulumi.kubernetes.meta.v1.inputs.ObjectMetaArgs;
+import com.pulumi.resources.CustomResourceOptions;
 
 /**
  * A complete infrastructure for a microservice application in the Google Cloud
@@ -50,16 +71,18 @@ public class PulumiJava {
             setupDockerRepository(ctx);
             // buildDockerImage(ctx);
 
-            setupAutopilotKubernetesCluster(ctx);
-            // setupManagedKubernetesCluster(ctx);
+            var cluster = setupAutopilotKubernetesCluster(ctx);
+            // var cluster = setupManagedKubernetesCluster(ctx);
 
-            setupPostgresDatabase(ctx);
+            var database = setupPostgresDatabase(ctx);
+
+            deployMicroservice(ctx, cluster, database);
 
             readAndExportReadme(ctx);
         });
     }
 
-    static void setupStorageBucket(Context ctx) {
+   static void setupStorageBucket(Context ctx) {
         // Create a GCP resource (Storage Bucket)
         var bucket = new Bucket("java-pulumi-bucket", BucketArgs.builder()
                 .location("EU")
@@ -113,7 +136,7 @@ public class PulumiJava {
         ctx.export("imageRef", image.ref());
     }
 
-    static void setupAutopilotKubernetesCluster(Context ctx) {
+    static Cluster setupAutopilotKubernetesCluster(Context ctx) {
         var region = retrieveRegion(ctx);
 
         // create a GKE autopilot cluster
@@ -121,7 +144,7 @@ public class PulumiJava {
                 .deletionProtection(false)
                 .location(region)
                 .enableAutopilot(true)
-                // we could also use semantic versioning here, like 1.30
+                // we could also use semantic versioning here, like 1.31
                 // .nodeVersion("latest")
                 // .minMasterVersion("latest")
                 .build());
@@ -130,9 +153,11 @@ public class PulumiJava {
         ctx.export("kubernetesClusterEndpoint", cluster.endpoint());
         ctx.export("kubernetesClusterName", cluster.name());
         ctx.export("kubeconfig", Output.of(generateKubeconfig(cluster)));
+
+        return cluster;
     }
 
-    static void setupManagedKubernetesCluster(Context ctx) {
+    static Cluster setupManagedKubernetesCluster(Context ctx) {
         var region = retrieveRegion(ctx);
 
         var cluster = new Cluster("pulumi-java-regional-cluster", ClusterArgs.builder()
@@ -166,6 +191,8 @@ public class PulumiJava {
         ctx.export("kubernetesClusterEndpoint", cluster.endpoint());
         ctx.export("kubernetesClusterName", cluster.name());
         ctx.export("kubeconfig", generateKubeconfig(cluster));
+
+        return cluster;
     }
 
     private static Output<String> generateKubeconfig(Cluster cluster) {
@@ -175,31 +202,31 @@ public class PulumiJava {
         kind: Config                
         clusters:
         - name: %1$s
-                cluster:
-                certificate-authority-data: %2$s
-                server: https://%3$s
+          cluster:
+            certificate-authority-data: %2$s
+            server: https://%3$s
         contexts:
         - name: %1$s
-                context:
-                cluster: %1$s
-                user: %1$s
+          context:
+            cluster: %1$s
+            user: %1$s
         current-context: %1$s
         users:
         - name: %1$s
-                user:
-                exec:
-                apiVersion: client.authentication.k8s.io/v1beta1
-                command: gke-gcloud-auth-plugin
-                installHint: Install gke-gcloud-auth-plugin for use with kubectl
-                interactiveMode: IfAvailable
-                provideClusterInfo: true
+          user:
+            exec:
+              apiVersion: client.authentication.k8s.io/v1beta1
+              command: gke-gcloud-auth-plugin
+              installHint: Install gke-gcloud-auth-plugin for use with kubectl
+              interactiveMode: IfAvailable
+              provideClusterInfo: true
         """,
         cluster.name().applyValue(name -> name),
         cluster.masterAuth().applyValue(auth -> auth.clusterCaCertificate().orElse("")),
         cluster.endpoint().applyValue(endpoint -> endpoint));
     }
 
-    static void setupPostgresDatabase(Context ctx) {
+    static DatabaseInstance setupPostgresDatabase(Context ctx) {
         var region = retrieveRegion(ctx);
 
         var postgresInstance = new DatabaseInstance("pulumi-java-postgres-db", 
@@ -212,6 +239,76 @@ public class PulumiJava {
                 .build());
 
         ctx.export("postgresConnectionString", postgresInstance.connectionName());
+
+        return postgresInstance;
+    }
+
+    static void deployMicroservice(Context ctx, Cluster cluster, DatabaseInstance database) {
+        // var kubeconfig = generateKubeconfig(cluster);
+        String kubeconfig;
+        try {
+           kubeconfig = Files.readString(Paths.get("./kubeconfig"));
+        } catch (IOException e) {
+           throw new RuntimeException(e);
+        }
+
+        var provider = new Provider("gke-provider", ProviderArgs.builder()
+                .kubeconfig(kubeconfig)
+                .build());
+
+        // create the microservice Kubernetes resources
+        var appLabels = Map.of("app", "microservice");
+        var options = CustomResourceOptions.builder().provider(provider).build();
+        var namespace = new Namespace("microservice", NamespaceArgs.builder()
+            .metadata(ObjectMetaArgs.builder()
+                .name("microservice")
+                .build())
+            .build(), options);
+        
+        var deployment = new Deployment("microservice-deployment", DeploymentArgs.builder()
+                .metadata(ObjectMetaArgs.builder()
+                    .namespace(namespace.metadata().applyValue(meta -> meta.name().get()))
+                    .build())
+                .spec(DeploymentSpecArgs.builder()
+                    .replicas(2)
+                    .selector(LabelSelectorArgs.builder().matchLabels(appLabels).build())
+                    .template(PodTemplateSpecArgs.builder()
+                        .metadata(ObjectMetaArgs.builder().labels(appLabels).build())
+                        .spec(PodSpecArgs.builder()
+                            .containers(ContainerArgs.builder()
+                                .name("microservice")
+                                .image("ghcr.io/lreimer/nextgen-iac-pulumi-java:main")
+                                .ports(ContainerPortArgs.builder()
+                                    .name("http")
+                                    .containerPort(10000)
+                                    .build())
+                                .env(EnvVarArgs.builder()
+                                    .name("DATABASE_URL")
+                                    .value(database.connectionName())
+                                    .build())
+                                .build())
+                            .build())
+                        .build())
+                    .build())
+                .build(), options);
+
+        var service = new Service("microservice-service", ServiceArgs.builder()
+                .metadata(ObjectMetaArgs.builder()
+                    .namespace(namespace.metadata().applyValue(meta -> meta.name().get()))
+                    .build())
+                .spec(ServiceSpecArgs.builder()
+                    .selector(appLabels)
+                    .ports(ServicePortArgs.builder()
+                        .port(80)
+                        .targetPort("http")
+                        .build())
+                    .type("LoadBalancer")
+                    .build())
+                .build());
+        
+        ctx.export("namespace", namespace.metadata().applyValue(meta -> meta.name()));
+        ctx.export("deployment", deployment.metadata().applyValue(meta -> meta.name()));
+        ctx.export("service", service.metadata().applyValue(meta -> meta.name()));
     }
 
     private static String retrieveRegion(Context ctx) {
