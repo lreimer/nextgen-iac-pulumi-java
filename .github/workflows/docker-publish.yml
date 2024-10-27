@@ -1,4 +1,4 @@
-name: Docker
+name: Build and Publish Docker Image
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -21,7 +21,7 @@ env:
 
 
 jobs:
-  build:
+  build-and-publish:
 
     runs-on: ubuntu-latest
     permissions:
