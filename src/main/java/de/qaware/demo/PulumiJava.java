@@ -101,7 +101,7 @@ public class PulumiJava {
     static void buildDockerImage(Context ctx) {
         // build the Docker image
         var image = new Image("microservice-image", ImageArgs.builder()
-                .tags("gcr.io/lreimer/" + ctx.projectName() + ":main")
+                .tags("ghcr.io/lreimer/" + ctx.projectName() + ":main")
                 .context(BuildContextArgs.builder()
                         .location("./src/main/docker")
                         .build())
@@ -170,39 +170,40 @@ public class PulumiJava {
 
     private static Output<String> generateKubeconfig(Cluster cluster) {
         return Output.format(
-                """
-                apiVersion: v1
-                kind: Config                
-                clusters:
-                - name: %1$s
-                  cluster:
-                    certificate-authority-data: %2$s
-                    server: https://%3$s
-                contexts:
-                - name: %1$s
-                  context:
-                    cluster: %1$s
-                    user: %1$s
-                current-context: %1$s
-                users:
-                - name: %1$s
-                  user:
-                    exec:
-                      apiVersion: client.authentication.k8s.io/v1beta1
-                      command: gke-gcloud-auth-plugin
-                      installHint: Install gke-gcloud-auth-plugin for use with kubectl
-                      interactiveMode: IfAvailable
-                      provideClusterInfo: true
-                """,
-                cluster.name().applyValue(name -> name),
-                cluster.masterAuth().applyValue(auth -> auth.clusterCaCertificate().orElse("")),
-                cluster.endpoint().applyValue(endpoint -> endpoint));
+        """
+        apiVersion: v1
+        kind: Config                
+        clusters:
+        - name: %1$s
+                cluster:
+                certificate-authority-data: %2$s
+                server: https://%3$s
+        contexts:
+        - name: %1$s
+                context:
+                cluster: %1$s
+                user: %1$s
+        current-context: %1$s
+        users:
+        - name: %1$s
+                user:
+                exec:
+                apiVersion: client.authentication.k8s.io/v1beta1
+                command: gke-gcloud-auth-plugin
+                installHint: Install gke-gcloud-auth-plugin for use with kubectl
+                interactiveMode: IfAvailable
+                provideClusterInfo: true
+        """,
+        cluster.name().applyValue(name -> name),
+        cluster.masterAuth().applyValue(auth -> auth.clusterCaCertificate().orElse("")),
+        cluster.endpoint().applyValue(endpoint -> endpoint));
     }
 
     static void setupPostgresDatabase(Context ctx) {
         var region = retrieveRegion(ctx);
 
-        var postgresInstance = new DatabaseInstance("pulumi-java-postgres-db", DatabaseInstanceArgs.builder()
+        var postgresInstance = new DatabaseInstance("pulumi-java-postgres-db", 
+            DatabaseInstanceArgs.builder()
                 .region(region)
                 .databaseVersion("POSTGRES_14")
                 .settings(DatabaseInstanceSettingsArgs.builder()
