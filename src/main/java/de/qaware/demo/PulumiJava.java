@@ -10,6 +10,14 @@ import com.pulumi.core.Output;
 import com.pulumi.gcp.artifactregistry.Repository;
 import com.pulumi.gcp.artifactregistry.RepositoryArgs;
 import com.pulumi.gcp.artifactregistry.inputs.RepositoryDockerConfigArgs;
+import com.pulumi.gcp.container.Cluster;
+import com.pulumi.gcp.container.ClusterArgs;
+import com.pulumi.gcp.container.inputs.ClusterAddonsConfigArgs;
+import com.pulumi.gcp.container.inputs.ClusterAddonsConfigHorizontalPodAutoscalingArgs;
+import com.pulumi.gcp.container.inputs.ClusterAddonsConfigHttpLoadBalancingArgs;
+import com.pulumi.gcp.container.inputs.ClusterNodePoolArgs;
+import com.pulumi.gcp.container.inputs.ClusterNodePoolAutoscalingArgs;
+import com.pulumi.gcp.container.inputs.ClusterNodePoolNodeConfigArgs;
 import com.pulumi.gcp.storage.Bucket;
 import com.pulumi.gcp.storage.BucketArgs;
 import com.pulumi.gcp.storage.inputs.BucketCorArgs;
@@ -30,6 +38,7 @@ public class PulumiJava {
         Pulumi.run(ctx -> {
             setupStorageBucket(ctx);   
             setupDockerRepository(ctx);
+            setupAutopilotKubernetesCluster(ctx);
             readAndExportReadme(ctx);         
         });
     }
@@ -52,7 +61,7 @@ public class PulumiJava {
 
     static void setupDockerRepository(Context ctx) {
         // read the region from the Pulumi configuration
-        var location = ctx.config().get("gcp:region").orElse("europe-west1");
+        var location = retrieveRegion(ctx);
 
         // Create a GCP Artifact Registry repository for Docker images
         var repository = new Repository("microservice-repo",
@@ -73,9 +82,70 @@ public class PulumiJava {
         ctx.export("repositoryId", repository.id());
     }
 
+    static void setupAutopilotKubernetesCluster(Context ctx) {
+        var region = retrieveRegion(ctx);
+
+        // create a GKE autopilot cluster
+        var cluster = new Cluster("pulumi-java-auto-cluster", ClusterArgs.builder()
+            .deletionProtection(false)
+            .location(region)
+            .enableAutopilot(true)
+            // we could also use semantic versioning here, like 1.30
+            .nodeVersion("latest")
+            .minMasterVersion("latest")
+            .build());
+
+        // export the cluster endpoint and name
+        ctx.export("kubernetesClusterEndpoint", cluster.endpoint());
+        ctx.export("kubernetesClusterName", cluster.name());
+    }
+
+    static void setupRegionalKubernetesCluster(Context ctx) {
+        var region = retrieveRegion(ctx);
+
+        var cluster = new Cluster("pulumi-java-regional-cluster", ClusterArgs.builder()
+            .name("pulumi-java-regional-cluster")
+            .deletionProtection(false)
+            .location(region)
+            .nodeVersion("1.30")
+            .minMasterVersion("1.30")
+            .nodePools(ClusterNodePoolArgs.builder()
+                .name("default-pool")
+                .initialNodeCount(1)
+                .nodeConfig(ClusterNodePoolNodeConfigArgs.builder()
+                    .machineType("n2-standard-8")
+                    .build())
+                .autoscaling(ClusterNodePoolAutoscalingArgs.builder()
+                    .minNodeCount(1)
+                    .maxNodeCount(3)
+                    .build())
+                .build())        
+            .addonsConfig(ClusterAddonsConfigArgs.builder()
+                .horizontalPodAutoscaling(ClusterAddonsConfigHorizontalPodAutoscalingArgs.builder()            
+                    .disabled(false)
+                    .build())
+                .httpLoadBalancing(ClusterAddonsConfigHttpLoadBalancingArgs.builder()
+                    .disabled(false)
+                    .build())
+                .build())   
+            .build());
+
+        // export the cluster endpoint and name
+        ctx.export("kubernetesClusterEndpoint", cluster.endpoint());
+        ctx.export("kubernetesClusterName", cluster.name());
+    }
+
+    static void setupPostgresDatabase(Context ctx) {
+        
+    }
+
+    private static String retrieveRegion(Context ctx) {
+        return ctx.config().get("gcp:region").orElse("europe-west1");
+    }
+
     static void readAndExportReadme(Context ctx) {
         try {
-            // Read the README file and export it as an output
+            // read the Pulumi README file and export it as an output
             var readme = Files.readString(Paths.get("./Pulumi.README.md"));
             ctx.export("readme", Output.of(readme));
         } catch (IOException e) {
