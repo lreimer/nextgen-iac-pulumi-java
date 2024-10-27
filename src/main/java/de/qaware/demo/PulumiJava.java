@@ -7,6 +7,10 @@ import java.nio.file.Paths;
 import com.pulumi.Context;
 import com.pulumi.Pulumi;
 import com.pulumi.core.Output;
+import com.pulumi.dockerbuild.Image;
+import com.pulumi.dockerbuild.ImageArgs;
+import com.pulumi.dockerbuild.enums.Platform;
+import com.pulumi.dockerbuild.inputs.BuildContextArgs;
 import com.pulumi.gcp.artifactregistry.Repository;
 import com.pulumi.gcp.artifactregistry.RepositoryArgs;
 import com.pulumi.gcp.artifactregistry.inputs.RepositoryDockerConfigArgs;
@@ -38,6 +42,7 @@ public class PulumiJava {
         Pulumi.run(ctx -> {
             setupStorageBucket(ctx);   
             setupDockerRepository(ctx);
+            // buildDockerImage(ctx);
             setupAutopilotKubernetesCluster(ctx);
             readAndExportReadme(ctx);         
         });
@@ -80,6 +85,21 @@ public class PulumiJava {
 
         // Export the repository ID
         ctx.export("repositoryId", repository.id());
+    }
+
+    static void buildDockerImage(Context ctx) {
+        // build the Docker image
+        var image = new Image("microservice-image", ImageArgs.builder()
+                .tags("gcr.io/lreimer/" + ctx.projectName() + "microservice:latest")
+                .context(BuildContextArgs.builder()
+                        .location("./src/main/docker")
+                        .build())
+                .platforms(Platform.Linux_amd64, Platform.Linux_arm64)
+                .buildOnPreview(true)                
+                .push(false)
+                .build());
+
+        ctx.export("imageRef", image.ref());
     }
 
     static void setupAutopilotKubernetesCluster(Context ctx) {
