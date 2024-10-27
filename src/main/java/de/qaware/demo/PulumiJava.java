@@ -244,13 +244,15 @@ public class PulumiJava {
     }
 
     static void deployMicroservice(Context ctx, Cluster cluster, DatabaseInstance database) {
-        // var kubeconfig = generateKubeconfig(cluster);
+        var kubeconfig = generateKubeconfig(cluster);
+        /*
         String kubeconfig;
         try {
            kubeconfig = Files.readString(Paths.get("./kubeconfig"));
         } catch (IOException e) {
            throw new RuntimeException(e);
         }
+        */
 
         var provider = new Provider("gke-provider", ProviderArgs.builder()
                 .kubeconfig(kubeconfig)
