@@ -1,4 +1,5 @@
-# Next-Generation Infrastructure as Code with Pulumi and Java
+# Next-Generation Infrastructure as Code 
+## Cloud Infrastructure with Pulumi and Java
 
 Repository for JAVASpektrum article on next generation Infrastructure as Code using Pulumi and Java.
 
