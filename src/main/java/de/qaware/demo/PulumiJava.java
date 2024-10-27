@@ -90,7 +90,7 @@ public class PulumiJava {
     static void buildDockerImage(Context ctx) {
         // build the Docker image
         var image = new Image("microservice-image", ImageArgs.builder()
-                .tags("gcr.io/lreimer/" + ctx.projectName() + "microservice:latest")
+                .tags("gcr.io/lreimer/" + ctx.projectName() + ":main")
                 .context(BuildContextArgs.builder()
                         .location("./src/main/docker")
                         .build())
