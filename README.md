@@ -11,6 +11,13 @@ In this repository, we will build a complete infrastructure for a microservice a
 # to create the entire infrastructure
 pulumi up
 
+# obtain kubeconfig and get resources
+pulumi stack output kubeconfig --show-secrets > kubeconfig
+
+KUBECONFIG=$PWD/kubeconfig kubectl cluster-info
+KUBECONFIG=$PWD/kubeconfig kubectl get nodes
+KUBECONFIG=$PWD/kubeconfig kubectl get --namespace microservice all
+
 # to destroy the entire infrastructure
 pulumi destroy
 ```
