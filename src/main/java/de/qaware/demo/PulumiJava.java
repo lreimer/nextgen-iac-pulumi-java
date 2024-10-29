@@ -236,6 +236,7 @@ public class PulumiJava {
 
         var postgresInstance = new DatabaseInstance("pulumi-java-postgres-db", 
             DatabaseInstanceArgs.builder()
+                .deletionProtection(false)
                 .region(region)
                 .databaseVersion("POSTGRES_14")
                 .settings(DatabaseInstanceSettingsArgs.builder()
