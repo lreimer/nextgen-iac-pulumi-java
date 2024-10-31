@@ -1,6 +1,6 @@
-# config:
-#   gcp:project: cloud-native-experience-lab
-#   gcp:region: europe-west1
+config:
+  gcp:project: cloud-native-experience-lab
+  gcp:region: europe-west1
 
-environment:
-  - nextgen-iac-pulumi-java/dev
+# environment:
+#  - nextgen-iac-pulumi-java/dev
