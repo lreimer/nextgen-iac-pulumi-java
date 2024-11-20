@@ -112,7 +112,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-wrapper-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.3.2</version>
                 <configuration>
                     <mavenVersion>3.8.5</mavenVersion>
                 </configuration>
